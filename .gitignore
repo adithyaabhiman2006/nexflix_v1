@@ -6,8 +6,6 @@ node_modules/
 !.env.example
 *.tsbuildinfo
 
-# Too large for GitHub (>100 MB) — raw sources of assets/trailers/*.mp4
-assets/videos:trailer for banner :preview/
 # Duplicate of "UI images/"
 Nexflix UI images.zip
 # Test failure screenshot
