@@ -1,0 +1,152 @@
+// One shared PostgreSQL database (proposal v2.0, section 8).
+// Change it only through migrations: `npm run db:migrate -- --name <what-changed>`.
+// Add fields, never rename or remove one while an older app still reads it.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// A country we sell in, with its own price, currency and payment methods.
+model Country {
+  code          String   @id @db.Char(2) /// ISO 3166-1, e.g. LK, GB
+  nameEn        String @map("name_en")
+  nameSi        String @map("name_si")
+  currency      String   @db.Char(3) /// ISO 4217, e.g. LKR, GBP
+  /// Monthly price in the currency's smallest unit (cents), so money is never a floating-point number.
+  monthlyMinor  Int @map("monthly_minor")
+  /// Payment methods offered here: card, voucher, dialog.
+  methods       String[]
+  /// UK and EU/EEA viewers must agree to analytics cookies first.
+  needsConsent  Boolean  @default(false) @map("needs_consent")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("countries")
+}
+
+/// A browse category, such as Cinema or Teledramas.
+model Category {
+  key       String   @id /// URL name, e.g. "cinema" in /en/browse/cinema
+  nameEn    String @map("name_en")
+  nameSi    String @map("name_si")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("categories")
+}
+
+enum Role {
+  viewer
+  admin
+}
+
+/// A member. Signs in with an email, a mobile number, or both.
+model User {
+  id               String    @id @default(uuid()) @db.Uuid
+  email            String?   @unique /// stored lower-case
+  phone            String?   @unique /// E.164, e.g. +94771234567
+  passwordHash     String?   @map("password_hash") /// scrypt; null for code-only accounts
+  name             String?
+  role             Role      @default(viewer)
+  country          String    @db.Char(2)
+  language         String    @default("en") @db.VarChar(2)
+  marketingOptIn   Boolean   @default(false) @map("marketing_opt_in")
+  termsAcceptedAt  DateTime  @map("terms_accepted_at")
+  emailVerifiedAt  DateTime? @map("email_verified_at")
+  phoneVerifiedAt  DateTime? @map("phone_verified_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  sessions   Session[]
+  authTokens AuthToken[]
+
+  @@map("users")
+}
+
+/// A signed-in browser or device. The cookie holds a random token; only its SHA-256 is stored here.
+model Session {
+  id         String   @id /// SHA-256 of the cookie token, hex
+  userId     String   @map("user_id") @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  persistent Boolean  @default(false) /// "Keep me signed in"
+  userAgent  String?  @map("user_agent")
+  ip         String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+  expiresAt  DateTime @map("expires_at")
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+enum TokenPurpose {
+  reset_link   /// emailed password-reset link
+  reset_code   /// texted 6-digit code that leads to a reset
+  reset_grant  /// short-lived permission to set a new password, after a code was accepted
+  login_code   /// texted 6-digit sign-in code
+  signup_code  /// texted 6-digit code that confirms a new phone account
+}
+
+/// One-time links and codes. Only hashes are stored; each can be used once and expires.
+model AuthToken {
+  id         String       @id @default(uuid()) @db.Uuid
+  purpose    TokenPurpose
+  tokenHash  String       @map("token_hash")
+  userId     String?      @map("user_id") @db.Uuid /// null for a sign-up not yet confirmed
+  user       User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  target     String /// where it was sent: email or E.164 phone
+  /// Sign-up details waiting for the code (password already hashed). Never holds a plain password.
+  payload    Json?
+  attempts   Int          @default(0)
+  expiresAt  DateTime     @map("expires_at")
+  usedAt     DateTime?    @map("used_at")
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  @@index([target, purpose])
+  @@map("auth_tokens")
+}
+
+enum Channel {
+  email
+  sms
+}
+
+enum MessageStatus {
+  queued
+  sent
+  failed
+}
+
+/// Every email and text we send. In development nothing leaves the machine: read them at /en/dev/outbox.
+model OutboxMessage {
+  id        String        @id @default(uuid()) @db.Uuid
+  channel   Channel
+  to        String
+  template  String
+  language  String        @db.VarChar(2)
+  subject   String?
+  body      String /// SMS text, or the email's HTML
+  text      String? /// plain-text email version
+  status    MessageStatus @default(queued)
+  error     String?
+  createdAt DateTime      @default(now()) @map("created_at")
+  sentAt    DateTime?     @map("sent_at")
+
+  @@index([status, createdAt])
+  @@map("outbox_messages")
+}
+
+/// Fixed-window counters that slow down password guessing and code spamming.
+model RateLimit {
+  key         String   @id
+  count       Int
+  windowStart DateTime @map("window_start")
+
+  @@map("rate_limits")
+}
