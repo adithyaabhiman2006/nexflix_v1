@@ -1,6 +1,8 @@
 /* Shared state, helpers and catalogue rules. */
 
-const STORE_KEY = 'nexflix.demo.v6';
+const STORE_KEY = 'nexflix.prefs.v1';
+/* Only these preferences stay in the browser. Accounts, membership and progress live in the database. */
+const PREF_KEYS = ['lang', 'theme', 'country', 'subLang', 'quality', 'cookieChoice'];
 const DEFAULT_BANNER = ['pravegaya', 'maya-3d', 'vijayaba-kollaya', 'the-wife'];
 const DEFAULT_ROWS = ['new', 'trending', 'teledrama', 'cinema', 'dubbed', 'programme', 'soon'];
 const STREAM_LIMIT = 2;
@@ -12,18 +14,23 @@ const store = Object.assign({
   user: null,
   sub: { status: 'none', trialUsed: false },
   payments: [], progress: {}, otherStreams: [],
-  subLang: 'si', quality: 'auto', cookieChoice: null, voucherFails: 0,
-  admin: { over: {}, custom: [], banner: DEFAULT_BANNER.slice(), rows: DEFAULT_ROWS.slice(), batches: [], redeemed: [], links: [] },
+  subLang: 'si', quality: 'auto', cookieChoice: null,
+  admin: { over: {}, custom: [], banner: DEFAULT_BANNER.slice(), rows: DEFAULT_ROWS.slice(), links: [] },
 }, loadStore());
 
 function loadStore() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { return {}; }
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY)) || {};
+    return Object.fromEntries(PREF_KEYS.filter(k => k in saved).map(k => [k, saved[k]]));
+  } catch (e) { return {}; }
 }
 function save() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* private window: the demo still works for this session */ }
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(Object.fromEntries(PREF_KEYS.map(k => [k, store[k]])))); } catch (e) { /* private window: preferences last for this visit only */ }
+  if (typeof queueProgressSync === 'function') queueProgressSync();
 }
 
 const ACTIONS = {}, FORMS = {}, CHANGES = {};
+ACTIONS.reload = () => location.reload();
 let CLEAN = [];
 
 const $ = (s, root = document) => root.querySelector(s);
@@ -219,8 +226,7 @@ function nextEpisode(ti, s, e) {
 function hasAccess() {
   const s = store.sub;
   if (!store.user) return false;
-  if (s.status === 'trial' || s.status === 'active') return true;
-  return s.status === 'cancelled' && s.periodEnd > Date.now();
+  return ['trial', 'active', 'cancelled'].includes(s.status) && s.periodEnd > Date.now();
 }
 const locale = () => (store.lang === 'si' ? 'si-LK' : 'en-GB');
 function fmtDate(ms, opts) { return new Intl.DateTimeFormat(locale(), opts || { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(ms)); }
@@ -319,14 +325,16 @@ ACTIONS.toggleTheme = () => { store.theme = store.theme === 'dark' ? 'light' : '
 ACTIONS.toggleLang = () => { store.lang = store.lang === 'si' ? 'en' : 'si'; save(); applyPrefs(); route(true); };
 CHANGES.setLang = el => { store.lang = el.value; save(); applyPrefs(); route(true); };
 CHANGES.setTheme = el => { store.theme = el.value; save(); applyPrefs(); renderChrome(true); };
-CHANGES.setCountry = el => { store.country = el.value; save(); toast(L(`Now viewing as ${COUNTRIES[el.value].name}`, `දැන් ${COUNTRIES[el.value].siName} ලෙස`)); route(true); };
+CHANGES.setCountry = el => {
+  store.country = el.value; save();
+  if (store.user) api('profile', { country: el.value }).catch(() => {}); toast(L(`Now viewing as ${COUNTRIES[el.value].name}`, `දැන් ${COUNTRIES[el.value].siName} ලෙස`)); route(true); };
 
 /* Navigation, footer, cookie banner */
-const logoHTML = () => `<img class="logo-dark" src="assets/logo-on-dark.png" alt="Nexflix"><img class="logo-light" src="assets/logo-on-light.png" alt="Nexflix">`;
+const logoHTML = () => `<span class="logo-mark" aria-hidden="true"></span><span class="logo-word">NEXFLIX</span><span class="sr">Nexflix</span>`;
 const NAV = () => [
   ['#/', t('home'), 'home'],
-  ['#/browse/teledrama', catName('teledrama'), 'tv'],
   ['#/browse/cinema', catName('cinema'), 'film'],
+  ['#/browse/teledrama', catName('teledrama'), 'tv'],
   ...['dubbed', 'programme'].filter(c => allTitles().some(x => x.cat === c && (isVisible(x) || isUpcoming(x)))).map(c => [`#/browse/${c}`, catName(c)]),
   ['#/new', t('newTrending'), 'flame'],
 ];
@@ -336,7 +344,7 @@ function renderChrome(force) {
   const bare = /^#\/(watch|admin)/.test(hash);
   document.body.classList.toggle('has-tabs', !!store.user && !bare);
   if (bare) { $('#nav').innerHTML = ''; $('#footer').innerHTML = ''; navKey = null; return; }
-  const key = [store.user && store.user.email, store.user && store.user.role, store.lang, store.theme, store.country].join('|');
+  const key = [store.user && store.user.email, store.user && store.user.role, store.lang, store.theme, store.country, /^#\/(login|signup|reset|new-password)/.test(hash)].join('|');
   if (force || key !== navKey) {
     navKey = key;
     $('#nav').innerHTML = navHTML();
@@ -348,11 +356,12 @@ function renderChrome(force) {
 }
 function navHTML() {
   const u = store.user;
-  const langBtn = `<button class="lang-btn" data-act="toggleLang" aria-label="${esc(t('language'))}">${store.lang === 'si' ? 'English' : 'සිංහල'}</button>`;
+  const langBtn = `<button class="lang-btn" data-act="toggleLang" aria-label="${esc(t('language'))}: ${store.lang === 'si' ? 'English' : 'සිංහල'}"><span class="${store.lang === 'si' ? 'on' : ''}">සිං</span><i>|</i><span class="${store.lang === 'en' ? 'on' : ''}">EN</span></button>`;
   const theme = `<button class="nav-icon" data-act="toggleTheme" aria-label="${esc(store.theme === 'dark' ? t('themeLight') : t('themeDark'))}">${icon(store.theme === 'dark' ? 'sun' : 'moon')}</button>`;
   if (!u) {
-    return `<nav class="nav" aria-label="Main"><a class="brand" href="#/welcome">${logoHTML()}</a>
-      <div class="nav-right">${langBtn}${theme}<a class="btn btn-primary btn-sm" href="#/login">${t('signIn')}</a></div></nav>`;
+    const onAuth = /^#\/(login|signup|reset|new-password)/.test(location.hash);
+    return `<nav class="nav nav-out" aria-label="Main"><a class="brand" href="#/welcome">${logoHTML()}</a>
+      <div class="nav-right">${langBtn}${onAuth ? '' : `<a class="btn btn-quiet btn-sm" href="#/login">${t('signIn')}</a>`}</div></nav>`;
   }
   const q = (location.hash.split('?q=')[1] || '');
   return `<nav class="nav" aria-label="Main"><a class="brand" href="#/">${logoHTML()}</a>
@@ -399,8 +408,13 @@ function renderCookie() {
 }
 ACTIONS.cookie = el => { store.cookieChoice = el.dataset.v; save(); renderCookie(); };
 ACTIONS.toggleMenu = () => { const m = $('#user-menu'); if (m) m.hidden = !m.hidden; };
-ACTIONS.signOut = () => { store.user = null; save(); go('#/welcome'); };
-function onScroll() { const n = $('.nav'); if (n) n.classList.toggle('solid', window.scrollY > 40 || !/^#?\/?$/.test(location.hash.replace('#/', '')) && !/welcome/.test(location.hash) && !/^#\/browse/.test(location.hash)); }
+ACTIONS.signOut = async () => {
+  await syncProgress();
+  try { await api('logout', {}); } catch (e) { /* signed out on this page anyway */ }
+  clearAccount();
+  go('#/welcome');
+};
+function onScroll() { const n = $('.nav'); if (n) n.classList.toggle('solid', window.scrollY > 40 || !/^#?\/?$/.test(location.hash.replace('#/', '')) && !/welcome|^#\/(login|signup|reset|new-password)/.test(location.hash) && !/^#\/browse/.test(location.hash)); }
 
 /* Event delegation */
 document.addEventListener('click', e => {

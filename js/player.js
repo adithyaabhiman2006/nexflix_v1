@@ -31,7 +31,7 @@ function viewWatch(id, seg1, seg2) {
     <div class="subs" id="p-subs" aria-live="off"></div>
     <div class="p-top">
       <a class="p-btn" href="${back}" aria-label="${esc(L('Back', 'ආපසු'))}">${icon('back')}</a>
-      <div class="p-title">${esc(heading)}${sub ? `<small>${esc(sub)}</small>` : ''}</div>
+      <div class="p-title">${esc(heading)}<small>${esc([altNm(ti), sub].filter(Boolean).join(' · '))}</small></div>
       <span class="demo-tag">${esc(L('Demo playback, no video file', 'ආදර්ශන වාදනය, වීඩියෝ ගොනුවක් නැත'))}</span>
     </div>
     <div class="p-center" id="p-center"></div>
@@ -42,7 +42,7 @@ function viewWatch(id, seg1, seg2) {
         <button class="p-btn" id="p-back" aria-label="${esc(L('Back 10 seconds', 'තත්පර 10 ආපසු'))}">${icon('back10')}</button>
         <button class="p-btn" id="p-fwd" aria-label="${esc(L('Forward 10 seconds', 'තත්පර 10 ඉදිරියට'))}">${icon('fwd10')}</button>
         <button class="p-btn" id="p-mute" aria-label="${esc(L('Mute', 'නිහඬ'))}">${icon('volume')}</button>
-        <span class="label">${esc(heading)}${ep ? ` · E${e}` : ''}</span><span class="spacer"></span>
+        <span class="p-clock" id="p-clock">0:00 / 0:00</span><span class="spacer"></span>
         ${nextEpisode(ti, s, e) && !trailer ? `<button class="p-btn" id="p-next-btn" aria-label="${esc(L('Next episode', 'ඊළඟ කථාංගය'))}">${icon('next')}</button>` : ''}
         ${ep ? `<button class="p-btn" id="p-eps" aria-label="${esc(t('episodes'))}">${icon('list')}</button>` : ''}
         <button class="p-btn" id="p-settings" aria-label="${esc(L('Subtitles and quality', 'උපසිරැසි සහ ගුණත්වය'))}">${icon('subs')}</button>
@@ -76,13 +76,14 @@ function startPlayer(ti, { trailer, s, e, ep }) {
   let playing = false, ready = false, muted = false, nextDismissed = false, lastSave = 0, idleTimer;
   const nxt = !trailer ? nextEpisode(ti, s, e) : null;
 
-  const scrub = $('#p-scrub'), time = $('#p-time'), subs = $('#p-subs'), center = $('#p-center'), playBtn = $('#p-play');
+  const scrub = $('#p-scrub'), time = $('#p-time'), clock = $('#p-clock'), subs = $('#p-subs'), center = $('#p-center'), playBtn = $('#p-play');
 
   function paint() {
     const pct = (pos / dur) * 100;
     scrub.value = Math.round((pos / dur) * 1000);
     scrub.style.setProperty('--pct', pct + '%');
-    time.textContent = `-${fmtTime(dur - pos)}`;
+    time.textContent = fmtTime(dur - pos);
+    clock.textContent = `${fmtTime(pos)} / ${fmtTime(dur)}`;
     const line = SUBTITLES[Math.floor(pos / 7) % SUBTITLES.length];
     const showing = store.subLang !== 'off' && pos % 7 < 5.2 && ready;
     const text = showing ? line[store.subLang === 'si' ? 1 : 0] : '';
@@ -152,15 +153,19 @@ function startPlayer(ti, { trailer, s, e, ep }) {
 
   function togglePanel(kind) {
     const slot = $('#p-panel-slot');
-    if (slot.dataset.kind === kind && slot.firstElementChild) { slot.innerHTML = ''; slot.dataset.kind = ''; return; }
+    const close = () => { slot.innerHTML = ''; slot.dataset.kind = ''; $('#p-settings').classList.remove('on'); };
+    if (slot.dataset.kind === kind && slot.firstElementChild) { close(); return; }
     slot.dataset.kind = kind;
+    $('#p-settings').classList.toggle('on', kind === 'settings');
     if (kind === 'settings') {
-      slot.innerHTML = `<div class="p-panel"><h4>${esc(L('Subtitles', 'උපසිරැසි'))}</h4>
-        ${[['si', 'සිංහල'], ['en', 'English'], ['off', L('Off', 'අක්‍රිය')]].map(o => `<button data-sub="${o[0]}" class="${store.subLang === o[0] ? 'sel' : ''}">${esc(o[1])}</button>`).join('')}
-        <h4 style="margin-top:12px">${esc(L('Quality', 'ගුණත්වය'))}</h4>
-        ${QUALITIES().map(o => `<button data-q="${o[0]}" class="${store.quality === o[0] ? 'sel' : ''}">${esc(o[1])}</button>`).join('')}</div>`;
-      $$('[data-sub]', slot).forEach(b => { b.onclick = () => { store.subLang = b.dataset.sub; save(); slot.innerHTML = ''; slot.dataset.kind = ''; paint(); }; });
-      $$('[data-q]', slot).forEach(b => { b.onclick = () => { store.quality = b.dataset.q; save(); slot.innerHTML = ''; slot.dataset.kind = ''; toast(`${L('Quality', 'ගුණත්වය')}: ${b.textContent}`); }; });
+      /* Audio, subtitles and quality side by side. A tick marks each current choice. */
+      const opt = (attr, val, label, on) => `<button data-${attr}="${val}" class="${on ? 'sel' : ''}" aria-pressed="${on}">${on ? '✓ ' : ''}${esc(label)}</button>`;
+      slot.innerHTML = `<div class="p-panel p-panel-3">
+        <div><h4>${esc(L('Audio', 'හඬ'))}</h4>${opt('audio', 'si', L('Sinhala', 'සිංහල'), true)}</div>
+        <div><h4>${esc(L('Subtitles', 'උපසිරැසි'))}</h4>${[['off', L('Off', 'අක්‍රිය')], ['si', 'සිංහල'], ['en', 'English']].map(o => opt('sub', o[0], o[1], store.subLang === o[0])).join('')}</div>
+        <div><h4>${esc(L('Quality', 'ගුණත්වය'))}</h4>${QUALITIES().map(o => opt('q', o[0], o[1], store.quality === o[0])).join('')}</div></div>`;
+      $$('[data-sub]', slot).forEach(b => { b.onclick = () => { store.subLang = b.dataset.sub; save(); close(); paint(); }; });
+      $$('[data-q]', slot).forEach(b => { b.onclick = () => { store.quality = b.dataset.q; save(); close(); toast(`${L('Quality', 'ගුණත්වය')}: ${b.textContent.replace('✓ ', '')}`); }; });
     } else {
       slot.innerHTML = `<div class="p-panel"><h4>${esc(t('season', { n: s }))}</h4>${episodes(ti, s).map(x => x.releaseAt
         ? `<button disabled style="opacity:.55">${esc(t('episode', { n: x.n }))}</button>`

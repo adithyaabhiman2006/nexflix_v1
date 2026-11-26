@@ -25,12 +25,14 @@ function renderPage(parts, params, raw) {
     case 'login': viewLogin(); return true;
     case 'signup': viewSignup(); return true;
     case 'reset': viewReset(); return true;
+    case 'new-password': viewNewPassword(); return true;
     case 'browse': if (!requireUser(raw)) return false; viewBrowse(a); return true;
     case 'new': if (!requireUser(raw)) return false; viewNew(); return true;
     case 'search': if (!requireUser(raw)) return false; viewSearch(params.get('q') || ''); return true;
     case 'plans': if (!store.user) { location.replace('#/signup'); return false; } viewPlans(); return true;
     case 'account': if (!requireUser(raw)) return false; viewAccount(); return true;
     case 'info': viewInfo(a); return true;
+    case 'title': viewTitle(a); return true;
     case 'admin': if (!requireUser(raw)) return false; viewAdmin(a); return true;
     case 'watch':
       if (b !== 'trailer' && !requireUser(raw)) return false;
@@ -41,20 +43,6 @@ function renderPage(parts, params, raw) {
 
 function route(force) {
   const { raw, parts, params } = parseHash();
-
-  /* Title details open as a modal above whatever page was showing. */
-  if (parts[0] === 'title') {
-    if (!baseHash || force || renderedHash !== baseHash) {
-      runCleanups();
-      const target = baseHash || (store.user ? '#/' : '#/welcome');
-      const p = parseFrom(target);
-      if (renderPage(p.parts, p.params, target) !== false) { baseHash = target; renderedHash = target; }
-    }
-    renderChrome(true);
-    renderCookie();
-    titleModal(parts[1]);
-    return;
-  }
 
   closeModal(true);
 
@@ -83,6 +71,10 @@ function parseFrom(hash) {
 }
 function runCleanups() { CLEAN.forEach(fn => { try { fn(); } catch (e) { /* one failed cleanup shouldn't stop navigation */ } }); CLEAN = []; }
 
-window.addEventListener('hashchange', () => route());
 applyPrefs();
-route();
+boot().then(ok => {
+  if (!ok) { viewSetupNeeded(); return; }
+  window.addEventListener('hashchange', () => route());
+  route();
+  showBootNotice();
+});

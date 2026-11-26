@@ -124,28 +124,3 @@ const CANCEL_REASONS = {
   time: ['I don\'t have time to watch', 'බලන්න වෙලාවක් නෑ'],
   other: ['Something else', 'වෙනත් හේතුවක්'],
 };
-
-/* Sample subscribers for the admin panel. */
-const SAMPLE_USERS = (() => {
-  const first = ['Amaya', 'Dinuka', 'Sachini', 'Kasun', 'Nethmi', 'Tharindu', 'Ishara', 'Ravindu', 'Hasini', 'Chamod', 'Piumi', 'Lahiru', 'Oshadi', 'Sahan', 'Vihangi', 'Nuwan'];
-  const last = ['Perera', 'Silva', 'Fernando', 'Jayasuriya', 'Bandara', 'Wijesinghe', 'Dissanayake', 'Gunawardena'];
-  const codes = ['LK', 'LK', 'LK', 'GB', 'AU', 'AE', 'CA', 'US'];
-  const statuses = ['active', 'active', 'active', 'trial', 'cancelled', 'pending', 'active', 'expired'];
-  const methods = { LK: ['Card', 'Voucher', 'Dialog'], other: ['Card'] };
-  return Array.from({ length: 48 }, (_, i) => {
-    const f = first[i % first.length], l = last[(i * 3) % last.length], c = codes[i % codes.length];
-    const pool = c === 'LK' ? methods.LK : methods.other;
-    return {
-      id: 'U-' + (10240 + i * 37), name: `${f} ${l}`,
-      email: `${f}.${l}${i}@example.com`.toLowerCase(), country: c,
-      status: statuses[(i * 5) % statuses.length], method: pool[i % pool.length],
-      renewsInDays: (i * 7) % 30 + 1,
-    };
-  });
-})();
-
-/* Weekly sign-ups for the admin chart. Sample figures, not a forecast. */
-const SAMPLE_SIGNUPS = [
-  ['Wk 1', 142], ['Wk 2', 188], ['Wk 3', 231], ['Wk 4', 204],
-  ['Wk 5', 276], ['Wk 6', 319], ['Wk 7', 298], ['Wk 8', 364],
-];

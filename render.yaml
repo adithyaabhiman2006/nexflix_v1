@@ -1,0 +1,21 @@
+# Render settings for the Nexflix website (free plan).
+# Free plan notes: the site sleeps after 15 minutes without visitors (the next visit takes about a minute),
+# and the database starts empty again whenever the server restarts or updates.
+services:
+  - type: web
+    name: nexflix
+    runtime: node
+    plan: free
+    buildCommand: echo "No build needed"
+    startCommand: node server/server.js
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: "1"
+      - key: PREVIEW_PASSWORD
+        sync: false
+      - key: PREVIEW_SECRET
+        generateValue: true

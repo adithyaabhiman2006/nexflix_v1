@@ -10,3 +10,15 @@ node_modules/
 Nexflix UI images.zip
 # Test failure screenshot
 web/e2e-failure.png
+
+# Private: customer accounts database and password-reset links. Never upload.
+data/
+*.db
+*.db-shm
+*.db-wal
+password-reset-links.txt
+# Browser test logs (can hold page contents)
+.playwright-cli/
+
+# Original trailer videos (large, not used by the website: it plays assets/trailers/*.mp4)
+assets/videos_trailer for banner _preview/
