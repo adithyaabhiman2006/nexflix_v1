@@ -1055,3 +1055,25 @@ button.link { font: inherit; font-weight: 700; color: var(--accent); }
 .vouch-cols .pref-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .vouch-cols > .panel + .panel { margin-top: 0; }
 .vouch-cols td small, .vouch-cols td:nth-child(4) { white-space: nowrap; }
+
+/* ---- Phone fixes ---- */
+/* iPhones with a notch: keep the top menu below the clock and camera, with the band behind them painted. */
+body { padding-top: env(safe-area-inset-top, 0px); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); background: var(--bg); z-index: 70; pointer-events: none; }
+#nav { top: env(safe-area-inset-top, 0px); }
+/* The account tabs scroll inside their own row instead of pushing the page wider than the screen. */
+.acct-page > * { min-width: 0; }
+@media (max-width: 1040px) {
+  /* Room for the bottom menu, including the home-bar area on newer phones. */
+  body.has-tabs { padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 760px) {
+  /* Tapping search opens the box across the top menu, so the language button and profile stay on screen. */
+  .nav-right { min-width: 0; }
+  .search-box:focus-within { position: absolute; left: var(--gutter); right: var(--gutter); top: 50%; transform: translateY(-50%); z-index: 2; background: var(--bg); box-shadow: 0 0 0 8px var(--bg); }
+  .search-box:focus-within input { flex: 1; width: auto; min-width: 0; }
+  .search-box.open:not(:focus-within) input { width: 0; padding: 0; }
+  /* The big search box on the search page fits its hint text. */
+  .search-big { height: 56px; padding: 0 14px; gap: 10px; }
+  .search-big input { font-size: 17px; }
+}
