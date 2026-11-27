@@ -9,10 +9,75 @@
   <link rel="icon" type="image/png" href="assets/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+Sinhala:wght@400;500;600;700&family=Noto+Serif+Sinhala:wght@600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=33">
+  <!-- Stylesheets load in the background (media="print", switched on by js/loader.js) so the loading screen below paints at once.
+       The loading screen covers the page until they and the images have arrived. -->
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+Sinhala:wght@400;500;600;700&family=Noto+Serif+Sinhala:wght@600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" media="print" data-nx-async>
+  <link rel="stylesheet" href="css/style.css?v=34" media="print" data-nx-async>
+  <noscript><link rel="stylesheet" href="css/style.css?v=34"></noscript>
+  <!-- Loading screen: styled here (not in style.css) so it shows instantly, even on a slow connection. -->
+  <style>
+    html, body { background: #2C3E3B; margin: 0; }
+    #nx-loader { position: fixed; inset: 0; z-index: 99999; display: grid; place-items: center;
+      background: radial-gradient(120% 90% at 50% 40%, #344A46 0%, #2C3E3B 45%, #1B2725 100%);
+      color: #EDD9C1; font-family: 'Space Grotesk', 'Manrope', system-ui, sans-serif;
+      transition: opacity .6s cubic-bezier(.2,.7,.2,1), visibility .6s;
+      animation: nx-failsafe .6s 60s forwards; /* hides itself if js/loader.js never arrives */ }
+    @keyframes nx-failsafe { to { opacity: 0; visibility: hidden; } }
+    #nx-loader.nx-done { opacity: 0; visibility: hidden; }
+    #nx-loader.nx-done .nx-stage { transform: scale(1.08); filter: blur(6px); }
+    html.nx-loading body { overflow: hidden; }
+    .nx-stage { display: grid; justify-items: center; gap: 26px; padding: 24px;
+      transition: transform .6s cubic-bezier(.2,.7,.2,1), filter .6s; }
+    .nx-word { position: relative; font-weight: 700; font-size: clamp(44px, 11vw, 112px);
+      letter-spacing: .06em; line-height: 1; white-space: nowrap; overflow: hidden; padding: .08em .04em; }
+    /* Outline layer: the empty word */
+    .nx-word .nx-ghost { color: transparent; -webkit-text-stroke: 1.5px rgba(237,217,193,.38); }
+    /* Fill layer: pours in left to right as the page loads */
+    .nx-word .nx-fill { position: absolute; inset: .08em .04em; color: #EDD9C1;
+      clip-path: inset(0 calc(100% - var(--p, 0%)) 0 0); transition: clip-path .45s cubic-bezier(.2,.7,.2,1); }
+    .nx-word span span { display: inline-block; animation: nx-rise .9s cubic-bezier(.2,.7,.2,1) both; }
+    .nx-word span span:nth-child(1) { animation-delay: .00s } .nx-word span span:nth-child(2) { animation-delay: .06s }
+    .nx-word span span:nth-child(3) { animation-delay: .12s } .nx-word span span:nth-child(4) { animation-delay: .18s }
+    .nx-word span span:nth-child(5) { animation-delay: .24s } .nx-word span span:nth-child(6) { animation-delay: .30s }
+    .nx-word span span:nth-child(7) { animation-delay: .36s }
+    /* The two X letters are the signature: clay-coloured and turning like film reels */
+    .nx-word .nx-fill .nx-x { color: #C3714B; }
+    .nx-word .nx-ghost .nx-x { -webkit-text-stroke-color: rgba(195,113,75,.6); }
+    .nx-word .nx-x { animation: nx-rise .9s cubic-bezier(.2,.7,.2,1) both, nx-turn 2.8s cubic-bezier(.65,0,.35,1) 1.2s infinite !important; }
+    /* Light beam sweeping across the word, like a projector */
+    .nx-word::after { content: ''; position: absolute; top: 0; bottom: 0; width: 28%; left: -30%;
+      background: radial-gradient(closest-side, rgba(237,217,193,.2), transparent);
+      animation: nx-beam 2.4s ease-in-out 1s infinite; pointer-events: none; }
+    .nx-meta { display: flex; align-items: center; gap: 14px; width: min(420px, 78vw);
+      font: 600 12px/1 'Space Grotesk', system-ui, sans-serif; letter-spacing: .22em; text-transform: uppercase; color: #A9CCC5; }
+    .nx-bar { flex: 1; height: 2px; background: rgba(237,217,193,.14); border-radius: 2px; overflow: hidden; }
+    .nx-bar i { display: block; height: 100%; width: var(--p, 0%); background: linear-gradient(90deg, #B55934, #C3714B, #EDD9C1);
+      transition: width .45s cubic-bezier(.2,.7,.2,1); }
+    .nx-pct { min-width: 4ch; text-align: right; font-variant-numeric: tabular-nums; }
+    .nx-note { margin: 0; min-height: 1.4em; max-width: 34ch; font: 500 14px/1.4 'Manrope', system-ui, sans-serif; color: #DACBB8;
+      text-align: center; opacity: 0; transition: opacity .5s; }
+    .nx-note.nx-show { opacity: .85; }
+    @keyframes nx-rise { from { opacity: 0; transform: translateY(.35em) rotate(-4deg); } to { opacity: 1; transform: none; } }
+    @keyframes nx-turn { 0%, 55% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+    @keyframes nx-beam { 0% { left: -30%; } 60%, 100% { left: 110%; } }
+    @media (prefers-reduced-motion: reduce) {
+      .nx-word span span, .nx-word .nx-x, .nx-word::after { animation: none !important; }
+    }
+  </style>
+  <noscript><style>#nx-loader { display: none; }</style></noscript>
 </head>
 <body>
+  <div id="nx-loader" role="status" aria-live="polite" aria-label="Loading Nexflix">
+    <div class="nx-stage">
+      <div class="nx-word" aria-hidden="true">
+        <span class="nx-ghost"><span>N</span><span>E</span><span class="nx-x">X</span><span>F</span><span>L</span><span>I</span><span class="nx-x">X</span></span>
+        <span class="nx-fill"><span>N</span><span>E</span><span class="nx-x">X</span><span>F</span><span>L</span><span>I</span><span class="nx-x">X</span></span>
+      </div>
+      <div class="nx-meta"><span>Loading</span><span class="nx-bar"><i></i></span><span class="nx-pct">0%</span></div>
+      <p class="nx-note"></p>
+    </div>
+  </div>
+  <script src="js/loader.js?v=1"></script>
   <a class="skip-link" href="#app">Skip to content</a>
   <header id="nav"></header>
   <main id="app" tabindex="-1"></main>
